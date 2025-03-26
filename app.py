@@ -1,56 +1,50 @@
-import streamlit as st
 from utils import *
 
-
-# Set page config
+# App configuration
 st.set_page_config(page_title="News Sentiment Analyzer", layout="wide")
-
-# App title
 st.title("📰 News Sentiment Analyzer")
-st.write("Enter a company name to analyze news sentiment and get insights.")
+st.caption("Analyze news sentiment and get audio translations in Hindi")
 
 
 # Main app function
-def main():
-    company_name = st.text_input("Enter Company Name", placeholder="e.g., Apple, Tesla")
+company = st.text_input("Enter company name", "Microsoft")
+if st.button("Analyze News"):
+    if not company.strip():
+        st.error("Please enter a company name")
+        st.stop()
     
-    if st.button("Analyze News"):
-        if not company_name:
-            st.error("Please enter a company name")
-            return
-            
-        with st.spinner("Fetching and analyzing news..."):
-            articles = fetch_news_articles(company_name)
-            
-            if not articles:
-                st.warning("No articles found for this company")
-                return
+    with st.spinner("Searching for news articles..."):
+        articles = fetch_news(company)
+        
+        if not articles:
+            st.warning("No articles found. Try a different company name.")
+            st.stop()
+        
+        # Process articles
+        progress_bar = st.progress(0)
+        for i, article in enumerate(articles):
+            article["sentiment"] = analyze_sentiment(article["summary"])
+            article["keywords"] = get_keywords(article["summary"])
+            article["audio"] = create_audio(article["summary"])
+            progress_bar.progress((i + 1) / len(articles))
+        
+        # Show results
+        st.success(f"Analysis complete for {company}")
+        
+        # Sentiment distribution
+        st.subheader("Sentiment Overview")
+        sentiment_df = pd.DataFrame([a["sentiment"] for a in articles]).value_counts().reset_index()
+        sentiment_df.columns = ["Sentiment", "Count"]
+        st.bar_chart(sentiment_df.set_index("Sentiment"))
+        
+        # Articles display
+        st.subheader("News Articles")
+        for i, article in enumerate(articles, 1):
+            with st.expander(f"{i}. {article['title']} ({article['sentiment']})"):
+                st.write(article["summary"])
+                st.write(f"**Keywords:** {', '.join(article['keywords'])}")
                 
-            # Process articles
-            for article in articles:
-                article["Sentiment"] = analyze_sentiment(article["Summary"])
-                article["Keywords"] = extract_keywords(article["Summary"])
-                # article["Audio"] = generate_hindi_audio(article["Summary"])
-            
-            # Display results
-            st.success(f"Found {len(articles)} articles about {company_name}")
-            
-            # Show sentiment distribution
-            sentiment_counts = pd.DataFrame([a["Sentiment"] for a in articles]).value_counts().reset_index()
-            sentiment_counts.columns = ["Sentiment", "Count"]
-            st.bar_chart(sentiment_counts.set_index("Sentiment"))
-            
-            # Display articles
-            for i, article in enumerate(articles, 1):
-                with st.expander(f"Article {i}: {article['Title']}"):
-                    st.write(f"**Summary:** {article['Summary']}")
-                    st.write(f"**Sentiment:** {article['Sentiment']}")
-                    st.write(f"**Keywords:** {', '.join(article['Keywords'])}")
-                    
-                    # if article["Audio"]:
-                    #     st.audio(article["Audio"], format="audio/mp3")
-                    # else:
-                    #     st.warning("Audio not available")
-
-if __name__ == "__main__":
-    main()
+                if article["audio"]:
+                    st.audio(article["audio"], format="audio/mp3")
+                else:
+                    st.warning("Audio translation unavailable")

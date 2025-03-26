@@ -1,70 +1,66 @@
+import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 from textblob import TextBlob
 from gtts import gTTS
-import pandas as pd
-import os
-import uuid
-from googletrans import Translator
+from translate import Translator as TransLateTranslator
 from keybert import KeyBERT
 from io import BytesIO
+import pandas as pd
 
-# Initialize KeyBERT model
+# Initialize models
 kw_model = KeyBERT()
+translator = TransLateTranslator(to_lang="hi")
 
-# Function to fetch news articles
-def fetch_news_articles(company_name):
-    urls = [f"https://www.bbc.com/search?q={company_name}&page={i}" for i in range(6)]
+def fetch_news(company_name):
+    """Fetch news articles from BBC Search"""
     articles = []
-    
-    for url in urls:
+    for page in range(3):  # Check first 3 pages
         try:
-            response = requests.get(url)
-            response.raise_for_status()
-            soup = BeautifulSoup(response.content, 'html.parser')
+            url = f"https://www.bbc.com/search?q={company_name}&page={page}"
+            response = requests.get(url, timeout=10)
+            soup = BeautifulSoup(response.text, 'html.parser')
             
-            for item in soup.find_all('div', class_='sc-c6f6255e-0 eGcloy'):
-                title_element = item.find('h2')
-                summary_element = item.find('div', class_='sc-4ea10043-3 kMizuB')
+            for item in soup.select('div.sc-c6f6255e-0.eGcloy'):
+                title = item.find('h2').get_text() if item.find('h2') else None
+                summary = item.select_one('div.sc-4ea10043-3.kMizuB').get_text() if item.select_one('div.sc-4ea10043-3.kMizuB') else None
                 
-                if title_element and summary_element:
+                if title and summary:
                     articles.append({
-                        "Title": title_element.text,
-                        "Summary": summary_element.text,
-                        "Sentiment": "",
-                        "Keywords": [],
-                        "Audio": None
+                        "title": title,
+                        "summary": summary,
+                        "sentiment": "",
+                        "keywords": [],
+                        "audio": None
                     })
         except Exception as e:
-            st.warning(f"Error fetching {url}: {str(e)}")
-            continue
+            st.warning(f"Couldn't fetch page {page}: {str(e)}")
     
-    return articles[:15]  # Return max 15 articles
+    return articles[:10]  # Return max 10 articles
 
-# Sentiment analysis
 def analyze_sentiment(text):
+    """Classify sentiment using TextBlob"""
     analysis = TextBlob(text)
     if analysis.sentiment.polarity > 0:
-        return "Positive"
+        return "😊 Positive"
     elif analysis.sentiment.polarity < 0:
-        return "Negative"
-    return "Neutral"
+        return "😠 Negative"
+    return "😐 Neutral"
 
-# Keyword extraction
-def extract_keywords(text):
-    keywords = kw_model.extract_keywords(text, keyphrase_ngram_range=(1, 2), stop_words='english', top_n=3)
-    return [keyword[0] for keyword in keywords]
+def get_keywords(text):
+    """Extract keywords using KeyBERT"""
+    return [kw[0] for kw in kw_model.extract_keywords(text, keyphrase_ngram_range=(1, 2), top_n=3)]
 
 # Generate Hindi audio
-def generate_hindi_audio(text):
+def create_audio(text):
+    """Generate Hindi audio from text"""
     try:
-        translator = Translator()
-        translated = translator.translate(text, src='en', dest='hi').text
+        translated = translator.translate(text)
+        audio = BytesIO()
         tts = gTTS(translated, lang='hi')
-        audio_bytes = BytesIO()
-        tts.write_to_fp(audio_bytes)
-        audio_bytes.seek(0)
-        return audio_bytes
+        tts.write_to_fp(audio)
+        audio.seek(0)
+        return audio
     except Exception as e:
-        st.error(f"Audio generation error: {str(e)}")
-        return None    
+        st.error(f"Translation/Audio error: {str(e)}")
+        return None   
