@@ -30,7 +30,7 @@ def main():
             for article in articles:
                 article["Sentiment"] = analyze_sentiment(article["Summary"])
                 article["Keywords"] = extract_keywords(article["Summary"])
-                article["Audio"] = generate_hindi_audio(article["Summary"])
+                # article["Audio"] = generate_hindi_audio(article["Summary"])
             
             # Display results
             st.success(f"Found {len(articles)} articles about {company_name}")
@@ -47,10 +47,10 @@ def main():
                     st.write(f"**Sentiment:** {article['Sentiment']}")
                     st.write(f"**Keywords:** {', '.join(article['Keywords'])}")
                     
-                    if article["Audio"]:
-                        st.audio(article["Audio"], format="audio/mp3")
-                    else:
-                        st.warning("Audio not available")
+                    # if article["Audio"]:
+                    #     st.audio(article["Audio"], format="audio/mp3")
+                    # else:
+                    #     st.warning("Audio not available")
 
 if __name__ == "__main__":
     main()
