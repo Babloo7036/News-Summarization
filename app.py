@@ -72,6 +72,4 @@ def main():
             display_results(company, articles)
 
 if __name__ == "__main__":
-    # Render-specific configuration
-    port = int(os.environ.get("PORT", 8501))
     main()
